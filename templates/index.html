@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Classification Using SVM</title>
+    <!-- Modern web font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="badge">Machine Learning Dashboard</div>
+            <h1>Weather Classification Using SVM</h1>
+            <p class="subtitle">
+                Fetch live weather data from any city in the world and use an RBF-kernel 
+                Support Vector Machine (SVM) to classify the atmospheric weather type.
+            </p>
+        </header>
+
+        <!-- Search Section -->
+        <section class="search-section card">
+            <form id="search-form" class="search-form">
+                <div class="input-group">
+                    <label for="city-input" class="visually-hidden">City Name</label>
+                    <span class="search-icon">📍</span>
+                    <input 
+                        type="text" 
+                        id="city-input" 
+                        name="city" 
+                        placeholder="Enter city name (e.g. London, Tokyo, New York, Mumbai)..." 
+                        autocomplete="off" 
+                        required
+                    >
+                    <button type="submit" id="fetch-btn" class="btn btn-primary">
+                        <span class="btn-text">Fetch Weather</span>
+                        <span class="btn-spinner hidden"></span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Quick City Suggestions -->
+            <div class="quick-cities">
+                <span class="quick-label">Try:</span>
+                <button type="button" class="chip" data-city="London">London</button>
+                <button type="button" class="chip" data-city="Tokyo">Tokyo</button>
+                <button type="button" class="chip" data-city="New York">New York</button>
+                <button type="button" class="chip" data-city="Dubai">Dubai</button>
+                <button type="button" class="chip" data-city="Sydney">Sydney</button>
+            </div>
+        </section>
+
+        <!-- Notification / Error Banner -->
+        <div id="status-banner" class="status-banner hidden" role="alert">
+            <span class="status-icon">⚠️</span>
+            <span id="status-message" class="status-message"></span>
+        </div>
+
+        <!-- Initial Placeholder State -->
+        <div id="empty-state" class="empty-state card">
+            <div class="empty-icon">🌤️</div>
+            <h3>No City Selected</h3>
+            <p>Type a city name above or click one of the suggested cities to fetch live atmospheric measurements.</p>
+        </div>
+
+        <!-- Main Content (Hidden until weather is fetched) -->
+        <main id="weather-content" class="weather-content hidden">
+            <!-- City Info Bar -->
+            <div class="location-bar">
+                <div class="location-details">
+                    <h2 id="resolved-city">City Name</h2>
+                    <span id="resolved-country" class="country-tag">Country</span>
+                    <span id="resolved-coords" class="coords-tag">Lat, Lon</span>
+                </div>
+                <button id="classify-btn" class="btn btn-accent">
+                    <span class="btn-text">⚡ Classify Weather With SVM</span>
+                    <span class="btn-spinner hidden"></span>
+                </button>
+            </div>
+
+            <!-- Weather Cards Grid -->
+            <section class="cards-grid" aria-label="Current Weather Measurements">
+                <!-- Temperature Card -->
+                <div class="metric-card">
+                    <div class="metric-icon temp-icon">🌡️</div>
+                    <div class="metric-info">
+                        <span class="metric-label">Temperature</span>
+                        <div class="metric-value"><span id="val-temp">--</span> <span class="unit">°C</span></div>
+                    </div>
+                </div>
+
+                <!-- Humidity Card -->
+                <div class="metric-card">
+                    <div class="metric-icon humidity-icon">💧</div>
+                    <div class="metric-info">
+                        <span class="metric-label">Humidity</span>
+                        <div class="metric-value"><span id="val-humidity">--</span> <span class="unit">%</span></div>
+                    </div>
+                </div>
+
+                <!-- Wind Speed Card -->
+                <div class="metric-card">
+                    <div class="metric-icon wind-icon">💨</div>
+                    <div class="metric-info">
+                        <span class="metric-label">Wind Speed</span>
+                        <div class="metric-value"><span id="val-wind">--</span> <span class="unit">km/h</span></div>
+                    </div>
+                </div>
+
+                <!-- Atmospheric Pressure Card -->
+                <div class="metric-card">
+                    <div class="metric-icon pressure-icon">⏲️</div>
+                    <div class="metric-info">
+                        <span class="metric-label">Atmospheric Pressure</span>
+                        <div class="metric-value"><span id="val-pressure">--</span> <span class="unit">hPa</span></div>
+                    </div>
+                </div>
+
+                <!-- Precipitation Probability Card -->
+                <div class="metric-card">
+                    <div class="metric-icon precip-icon">🌧️</div>
+                    <div class="metric-info">
+                        <span class="metric-label">Precipitation Chance</span>
+                        <div class="metric-value"><span id="val-precip">--</span> <span class="unit">%</span></div>
+                    </div>
+                </div>
+
+                <!-- Cloud Cover Card -->
+                <div class="metric-card">
+                    <div class="metric-icon cloud-icon">☁️</div>
+                    <div class="metric-info">
+                        <span class="metric-label">Cloud Cover</span>
+                        <div class="metric-value"><span id="val-cloud">--</span> <span class="unit">%</span></div>
+                    </div>
+                </div>
+
+                <!-- UV Index Card -->
+                <div class="metric-card">
+                    <div class="metric-icon uv-icon">☀️</div>
+                    <div class="metric-info">
+                        <span class="metric-label">UV Index</span>
+                        <div class="metric-value"><span id="val-uv">--</span> <span class="unit">level</span></div>
+                    </div>
+                </div>
+
+                <!-- Visibility Card -->
+                <div class="metric-card">
+                    <div class="metric-icon visibility-icon">👁️</div>
+                    <div class="metric-info">
+                        <span class="metric-label">Visibility</span>
+                        <div class="metric-value"><span id="val-visibility">--</span> <span class="unit">km</span></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Prediction Result Showcase -->
+            <section id="prediction-section" class="prediction-card card">
+                <div class="prediction-header">
+                    <span class="prediction-eyebrow">SVM Classifier Output</span>
+                    <h3>Machine Learning Prediction</h3>
+                </div>
+
+                <div class="prediction-body">
+                    <div class="prediction-badge-container">
+                        <div id="weather-icon-badge" class="weather-icon-badge">🌤️</div>
+                        <div class="prediction-text">
+                            <span class="label">Predicted Weather Type:</span>
+                            <div id="prediction-result" class="prediction-result">--</div>
+                        </div>
+                    </div>
+
+                    <div class="prediction-meta">
+                        <div class="confidence-box">
+                            <span class="confidence-label">Prediction Confidence</span>
+                            <div class="confidence-bar-wrap">
+                                <div id="confidence-bar" class="confidence-bar" style="width: 0%;"></div>
+                            </div>
+                            <span id="confidence-value" class="confidence-value">-- %</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Class Probabilities Breakdown -->
+                <div class="probabilities-section">
+                    <h4>Probability Distribution Across Classes</h4>
+                    <div class="prob-grid">
+                        <div class="prob-item">
+                            <span class="prob-name">☀️ Sunny</span>
+                            <div class="prob-track"><div id="prob-sunny" class="prob-fill" style="width: 0%;"></div></div>
+                            <span id="val-prob-sunny" class="prob-pct">0%</span>
+                        </div>
+                        <div class="prob-item">
+                            <span class="prob-name">🌧️ Rainy</span>
+                            <div class="prob-track"><div id="prob-rainy" class="prob-fill" style="width: 0%;"></div></div>
+                            <span id="val-prob-rainy" class="prob-pct">0%</span>
+                        </div>
+                        <div class="prob-item">
+                            <span class="prob-name">☁️ Cloudy</span>
+                            <div class="prob-track"><div id="prob-cloudy" class="prob-fill" style="width: 0%;"></div></div>
+                            <span id="val-prob-cloudy" class="prob-pct">0%</span>
+                        </div>
+                        <div class="prob-item">
+                            <span class="prob-name">❄️ Snowy</span>
+                            <div class="prob-track"><div id="prob-snowy" class="prob-fill" style="width: 0%;"></div></div>
+                            <span id="val-prob-snowy" class="prob-pct">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Model Evaluation Metrics Section -->
+        <section class="metrics-section card" aria-label="Model Evaluation Metrics">
+            <div class="section-title-wrap">
+                <h2>Trained SVM Model Performance</h2>
+                <p>Real evaluation metrics calculated on the 2,640 unseen Kaggle test samples (80/20 train-test split):</p>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-pill">
+                    <span class="pill-title">Accuracy</span>
+                    <span id="metric-accuracy" class="pill-number">89.73%</span>
+                    <span class="pill-desc">Overall Correct Predictions</span>
+                </div>
+                <div class="metric-pill">
+                    <span class="pill-title">Precision</span>
+                    <span id="metric-precision" class="pill-number">89.87%</span>
+                    <span class="pill-desc">Weighted Precision</span>
+                </div>
+                <div class="metric-pill">
+                    <span class="pill-title">Recall</span>
+                    <span id="metric-recall" class="pill-number">89.73%</span>
+                    <span class="pill-desc">Weighted Recall</span>
+                </div>
+                <div class="metric-pill">
+                    <span class="pill-title">F1-Score</span>
+                    <span id="metric-f1" class="pill-number">89.77%</span>
+                    <span class="pill-desc">Harmonic Mean of P & R</span>
+                </div>
+            </div>
+
+            <div class="specs-info">
+                <span><strong>Kernel:</strong> Radial Basis Function (RBF)</span>
+                <span><strong>Scaler:</strong> StandardScaler</span>
+                <span><strong>Dataset:</strong> 13,200 Balanced Records</span>
+                <span><strong>API:</strong> Open-Meteo Live Sensors</span>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>Weather Classification Using SVM • Student Machine Learning Project • Built with Flask, scikit-learn, HTML, CSS & JavaScript</p>
+        </footer>
+    </div>
+
+    <!-- Script -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
